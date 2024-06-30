@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, make_response, jsonify
+from flask import Flask, request, render_template, make_response, jsonify, url_for
 from huoZiYinShua import *
 import time
 import secrets
@@ -9,7 +9,11 @@ import sys
 import os
 
 # 临时文件存放目录
-tempOutputPath = "./tempAudioOutput/"
+tempOutputPath = "./static/tempAudioOutput/"
+# 确保目录存在
+if not os.path.exists(tempOutputPath):
+    os.makedirs(tempOutputPath)
+
 # 进程锁
 locker = Lock()
 queueRecord = {
@@ -58,7 +62,7 @@ def clearCache():
         time.sleep(60)
 
 # 核心代码
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static')
 
 @app.route('/')
 def index():
@@ -74,33 +78,31 @@ def HZYSS():
     reverse = (request.form.get("reverse") == "true")
     speedMult = float(request.form.get("speedMult"))
     pitchMult = float(request.form.get("pitchMult"))
-
     # 记录日志
     app.logger.debug("%s", request.form)
-
     # 特殊情况不予生成音频并返回错误代码
     if len(rawData) > 100:
         return jsonify({"code": 400, "message": "憋刷辣！"}), 400
     if (speedMult < 0.5) or (speedMult > 2) or (pitchMult < 0.5) or (pitchMult > 2):
         return jsonify({"code": 400, "message": "你在搞什么飞机？"}), 400
-
     try:
         # 获取ID
         id = makeid()
         # 活字印刷实例
         HZYS = huoZiYinShua("./settings.json")
         # 导出音频
+        file_path = os.path.join(tempOutputPath, id + ".wav")
         HZYS.export(rawData,
-                    filePath=tempOutputPath + id + ".wav",
+                    filePath=file_path,
                     inYsddMode=inYsddMode,
                     norm=norm,
                     reverse=reverse,
                     speedMult=speedMult,
                     pitchMult=pitchMult)
-        # 返回ID
-        return jsonify({"code": 200, "id": id}), 200
+        # 返回URL
+        file_url = url_for('static', filename='tempAudioOutput/' + id + '.wav', _external=True)
+        return jsonify({"code": 200, "id": id, "file_url": file_url}), 200
     except Exception as e:
-        # 返回错误代码
         print(e)
         return jsonify({"code": 400, "message": "生成失败"}), 400
 
@@ -133,16 +135,14 @@ def api_make():
         reverse = request.args.get("reverse") == "true"
         speedMult = float(request.args.get("speedMult", 1.0))
         pitchMult = float(request.args.get("pitchMult", 1.0))
-
     if len(rawData) > 100:
         return jsonify({"code": 400, "message": "憋刷辣！"}), 400
     if (speedMult < 0.5) or (speedMult > 2) or (pitchMult < 0.5) or (pitchMult > 2):
         return jsonify({"code": 400, "message": "你在搞什么飞机？"}), 400
-
     try:
         id = makeid()
         HZYS = huoZiYinShua("./settings.json")
-        file_path = os.path.abspath(tempOutputPath + id + ".wav")
+        file_path = os.path.join(tempOutputPath, id + ".wav")
         HZYS.export(rawData,
                     filePath=file_path,
                     inYsddMode=inYsddMode,
@@ -150,11 +150,11 @@ def api_make():
                     reverse=reverse,
                     speedMult=speedMult,
                     pitchMult=pitchMult)
-        return jsonify({"code": 200, "id": id, "file_path": file_path}), 200
+        file_url = url_for('static', filename='tempAudioOutput/' + id + '.wav', _external=True)
+        return jsonify({"code": 200, "id": id, "file_url": file_url}), 200
     except Exception as e:
         print(e)
         return jsonify({"code": 400, "message": "生成失败"}), 400
-
 
 if __name__ == '__main__':
     Thread(target=clearCache, args=()).start()
