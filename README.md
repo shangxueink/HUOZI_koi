@@ -5,21 +5,28 @@
 ## 食用方法
 ### Python 版本
 - 3.8.x
-### 部署步骤（仅以Windows为例）
+### 部署步骤
 1. 克隆项目仓库：
 ```bash
 git clone <仓库地址>
 cd <项目目录>
 ```
-2. 创建虚拟环境：
+2. 创建虚拟环境并激活：
+
 ```bash
 python -m venv venv
 ```
 
-激活虚拟环境
+**Windows**
 ```cmd
 venv\Scripts\activate.bat
 ```
+
+**Linux**
+```bash
+source ./venv/bin/activate  
+```
+
 
 3. 安装必要的构建工具：
 ```bash
