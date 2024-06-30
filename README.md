@@ -5,24 +5,22 @@
 ## 食用方法
 ### Python 版本
 - 3.8.x
-### 部署步骤
+### 部署步骤（仅以Windows为例）
 1. 克隆项目仓库：
 ```bash
 git clone <仓库地址>
 cd <项目目录>
 ```
-2. 创建虚拟环境并激活：
+2. 创建虚拟环境：
 ```bash
 python -m venv venv
 ```
-**Windows:**
+
+激活虚拟环境
 ```cmd
 venv\Scripts\activate.bat
 ```
-**Linux/MacOS:**
-```bash
-source venv/bin/activate
-```
+
 3. 安装必要的构建工具：
 ```bash
 pip install setuptools wheel
@@ -34,14 +32,11 @@ pip install -r requirements.txt
 5. 配置文件路径：
 - 如果有需要，你可以根据 `settings.json` 修改文件路径（注意，Linux 与 Windows 路径写法不一致）
 6. 运行服务：
-- **Windows:**
+
 ```cmd
 python app.py
 ```
-- **Linux/MacOS:**
-```bash
-sh play.sh
-```
+
 7. 访问服务：
 - 在浏览器中访问 [http://127.0.0.1:8989](http://127.0.0.1:8989) (默认端口为 8989，可以在 `app.py` 中更改)
 ## 使用 API 调用
@@ -57,8 +52,8 @@ sh play.sh
 - `pitchMult` (浮点数): 音高倍增器 (0.5 - 2.0)
 ### 示例请求
 **GET 请求示例：**
-```bash
-http://127.0.0.1:8989/api/make?text=你好啊&inYsddMode=false&norm=false&reverse=false&speedMult=1.0&pitchMult=1.0"
+```
+http://127.0.0.1:8989/api/make?text=你好啊&inYsddMode=false&norm=false&reverse=false&speedMult=1.0&pitchMult=1.0
 ```
 ### 响应格式
 - 成功响应：
