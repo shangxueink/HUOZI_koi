@@ -9,17 +9,17 @@ import sys
 import os
 
 # 临时文件存放目录
-tempOutputPath = "./static/tempAudioOutput/"
+tempOutputPath = "./tempAudioOutput/"
+# 缓存文件过期时间，单位秒
+CACHE_EXPIRY_TIME = 60
+
 # 确保目录存在
 if not os.path.exists(tempOutputPath):
-    os.makedirs(tempOutputPath)
+    os.makedirs(os.makedirs(tempOutputPath, exist_ok=True))  # 确保目录存在
 
 # 进程锁
 locker = Lock()
-queueRecord = {
-    "time": 0,
-    "place": 0
-}
+queueRecord = {"time": 0, "place": 0}
 
 # 启动日志
 hzysLogger = logging.getLogger()
@@ -30,6 +30,7 @@ hzysLogger.addHandler(hzysFileHandler)
 hzysLogger.addHandler(logging.StreamHandler(sys.stdout))
 hzysLogger.setLevel(logging.DEBUG)
 
+
 # 生成ID
 def makeid():
     locker.acquire()
@@ -39,10 +40,12 @@ def makeid():
         queueRecord["time"] = currentSec
         queueRecord["place"] = 0
     # ID=时间+次序+随机数
-    id = currentSec + "_" + str(queueRecord["place"]) + "_" + secrets.token_hex(8)
+    id = currentSec + "_" + str(
+        queueRecord["place"]) + "_" + secrets.token_hex(8)
     queueRecord["place"] += 1
     locker.release()
     return id
+
 
 # 清理临时文件
 def clearCache():
@@ -53,20 +56,29 @@ def clearCache():
             # 文件名符合格式
             try:
                 timeCreated = int(fileName.split("_")[0])  # 创建时间
-                if (currentTime - timeCreated) > 600:  # 间隔时间(秒)
-                    if fileName.endswith(".wav"):
-                        remove(tempOutputPath + fileName)
+                if (currentTime - timeCreated) > CACHE_EXPIRY_TIME:  # 间隔时间(秒)
+                    file_path = os.path.join(tempOutputPath, fileName)
+                    if fileName.endswith(".wav") and os.path.exists(file_path):
+                        try:
+                            remove(file_path)
+                            hzysLogger.info(f"已删除缓存文件: {file_path}")
+                        except OSError as e:
+                            hzysLogger.error(f"删除文件 {file_path} 时发生错误: {e}")
+
             # 若文件名不符合格式，(currentTime - timeCreated)会报错
-            except:
-                pass
+            except Exception as e:
+                hzysLogger.warning(f"处理文件名 {fileName} 时发生错误: {e}")
         time.sleep(60)
 
+
 # 核心代码
-app = Flask(__name__, static_folder='static')
+app = Flask(__name__, static_folder='')
+
 
 @app.route('/')
 def index():
     return render_template("home.html")
+
 
 # 用户发出生成音频的请求（POST方法）
 @app.route('/make', methods=['POST'])
@@ -83,7 +95,8 @@ def HZYSS():
     # 特殊情况不予生成音频并返回错误代码
     if len(rawData) > 100:
         return jsonify({"code": 400, "message": "憋刷辣！"}), 400
-    if (speedMult < 0.5) or (speedMult > 2) or (pitchMult < 0.5) or (pitchMult > 2):
+    if (speedMult < 0.5) or (speedMult > 2) or (pitchMult < 0.5) or (pitchMult
+                                                                     > 2):
         return jsonify({"code": 400, "message": "你在搞什么飞机？"}), 400
     try:
         # 获取ID
@@ -100,23 +113,31 @@ def HZYSS():
                     speedMult=speedMult,
                     pitchMult=pitchMult)
         # 返回URL
-        file_url = url_for('static', filename='tempAudioOutput/' + id + '.wav', _external=True)
+        file_url = url_for('static',
+                           filename='tempAudioOutput/' + id + '.wav',
+                           _external=True)
         return jsonify({"code": 200, "id": id, "file_url": file_url}), 200
     except Exception as e:
         print(e)
         return jsonify({"code": 400, "message": "生成失败"}), 400
 
+
 # 用户发出下载音频的请求
 @app.route('/get/<id>.wav')
 def get_audio(id):
     try:
-        with open(tempOutputPath + id + ".wav", 'rb') as f:
+        file_path = os.path.join(tempOutputPath, id + ".wav")
+        with open(file_path, 'rb') as f:
             audio = f.read()
         response = make_response(audio)
         response.content_type = "audio/wav"
         return response
-    except:
+    except FileNotFoundError:
         return render_template("fileNotFound.html"), 404
+    except Exception as e:
+        app.logger.error(f"提供音频文件 {id}.wav 时发生错误: {e}")
+        return "Internal Server Error", 500
+
 
 # 新增API接口，通过GET请求生成音频并返回本地文件的绝对地址
 @app.route('/api/make', methods=['GET', 'POST'])
@@ -137,7 +158,8 @@ def api_make():
         pitchMult = float(request.args.get("pitchMult", 1.0))
     if len(rawData) > 100:
         return jsonify({"code": 400, "message": "憋刷辣！"}), 400
-    if (speedMult < 0.5) or (speedMult > 2) or (pitchMult < 0.5) or (pitchMult > 2):
+    if (speedMult < 0.5) or (speedMult > 2) or (pitchMult < 0.5) or (pitchMult
+                                                                     > 2):
         return jsonify({"code": 400, "message": "你在搞什么飞机？"}), 400
     try:
         id = makeid()
@@ -150,11 +172,14 @@ def api_make():
                     reverse=reverse,
                     speedMult=speedMult,
                     pitchMult=pitchMult)
-        file_url = url_for('static', filename='tempAudioOutput/' + id + '.wav', _external=True)
+        file_url = url_for('static',
+                           filename='tempAudioOutput/' + id + '.wav',
+                           _external=True)
         return jsonify({"code": 200, "id": id, "file_url": file_url}), 200
     except Exception as e:
         print(e)
         return jsonify({"code": 400, "message": "生成失败"}), 400
+
 
 if __name__ == '__main__':
     Thread(target=clearCache, args=()).start()

@@ -8,8 +8,8 @@
 ### 部署步骤
 1. 克隆项目仓库：
 ```bash
-git clone https://github.com/shangxueink/HUOZI_koi.git
-cd HUOZI_koi
+git clone <仓库地址>
+cd <项目目录>
 ```
 2. 创建虚拟环境并激活：
 
